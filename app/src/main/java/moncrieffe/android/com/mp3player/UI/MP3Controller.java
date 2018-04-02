@@ -25,7 +25,7 @@ import java.util.Locale;
 import moncrieffe.android.com.mp3player.R;
 
 public class MP3Controller extends FrameLayout {
-    private static final String     TAG = "PlayerControllerView";
+    private static final String     TAG = "MP3Controller";
     private static final int        DEFUALT_TIMEOUT = 3000;
     private static final int        FADE_OUT = 1;
     private static final int        SHOW_PROGRESS = 2;
@@ -421,15 +421,6 @@ public class MP3Controller extends FrameLayout {
                 mPrevButton.setVisibility(View.VISIBLE);
             }
         }
-    }
-
-    public interface MediaPlayerControl {
-        void    start();
-        void    pause();
-        int     getDuration();
-        int     getCurrentPosition();
-        void    seekTo(int pos);
-        boolean isPlaying();
     }
 
     private static class MessageHandler extends Handler {

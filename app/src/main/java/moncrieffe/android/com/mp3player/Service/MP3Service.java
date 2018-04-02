@@ -23,9 +23,10 @@ import moncrieffe.android.com.mp3player.R;
 import moncrieffe.android.com.mp3player.Song.SongFile;
 import moncrieffe.android.com.mp3player.Song.SongFileList;
 import moncrieffe.android.com.mp3player.UI.MP3Controller;
+import moncrieffe.android.com.mp3player.UI.MediaPlayerControl;
 
 public class MP3Service extends Service
-        implements MP3Controller.MediaPlayerControl,
+        implements MediaPlayerControl,
         AudioManager.OnAudioFocusChangeListener{
 
     static final String ACTION_PLAY = "moncrieffe.android.com.mp3player.Service.ACTION_PLAY";
@@ -47,9 +48,7 @@ public class MP3Service extends Service
     private SongFileList mSongFileList;
     private int mSongIndex;
 
-    private MP3Controller mController;
-
-    private final IBinder mBinder = new LocalBinder();
+    private final IBinder mBinder = new LocalBinder(this);
     private AudioManager mAudioManager;
     private int mResumePosition;
 
@@ -57,8 +56,8 @@ public class MP3Service extends Service
     private MediaSessionCompat mSession;
     private MediaControllerCompat.TransportControls mControls;
 
-    private MediaPlayerListener mListener = new MediaPlayerListener();
-    private MediaPlayerBroadcastReceiver mBroadCastReceiver = new MediaPlayerBroadcastReceiver();
+    private MediaPlayerListener mListener;
+    private MediaPlayerBroadcastReceiver mBroadCastReceiver = new MediaPlayerBroadcastReceiver(this);
 
     @Nullable
     @Override
@@ -187,20 +186,19 @@ public class MP3Service extends Service
     {
         // initialize
         mPlayer = new MediaPlayer();
-
-        // set listeners
-        mPlayer.setOnCompletionListener(mListener);
-        mPlayer.setOnPreparedListener(mListener);
-
         mPlayer.reset();
         mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
 
     }
 
-    public void setController(MP3Controller controller)
+    // call after construction and restart
+    public void setServicePlayerListeners(MP3Controller controller, Context context)
     {
-        mController = controller;
+        mListener = new MediaPlayerListener(controller, context);
 
+        // set listeners
+        mPlayer.setOnCompletionListener(mListener);
+        mPlayer.setOnPreparedListener(mListener);
     }
 
     public void SetList(SongFileList fileList)
@@ -229,7 +227,7 @@ public class MP3Service extends Service
             mPlayer.start();
     }
 
-    private void pauseMedia(){
+    void pauseMedia(){
         if(mPlayer == null) return;
         if(mPlayer.isPlaying()) {
             mPlayer.pause();
@@ -372,7 +370,7 @@ public class MP3Service extends Service
         });
     }
 
-    private void updateMetaData() {
+    void updateMetaData() {
         if(mSongFile != null) {
             mSession.setMetadata(new MediaMetadataCompat.Builder()
                 /*.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, albumArt)
@@ -384,7 +382,7 @@ public class MP3Service extends Service
     }
     // Media session end
 
-    private void buildNotification(PlaybackStatus playbackStatus) {
+    void buildNotification(PlaybackStatus playbackStatus) {
 
         int notificationAction = android.R.drawable.ic_media_pause;//needs to be initialized
         PendingIntent play_pauseAction = null;
@@ -484,53 +482,5 @@ public class MP3Service extends Service
         //Register playNewMedia receiver
         IntentFilter filter = new IntentFilter(BROADCAST_AUDIO_PREPARED);
         registerReceiver(onAudioPreparedReceiver, filter);
-    }
-
-    public class LocalBinder extends Binder {
-        public MP3Service getService(){
-            return MP3Service.this;
-        }
-    }
-
-    class MediaPlayerListener implements
-            MediaPlayer.OnCompletionListener,
-            MediaPlayer.OnPreparedListener{
-
-        @Override
-        public void onCompletion(MediaPlayer mediaPlayer) {
-
-        }
-
-        @Override
-        public void onPrepared(MediaPlayer mediaPlayer) {
-            playMedia();
-            mController.show(0);
-
-            Intent broadcastIntent = new Intent(MP3Service.BROADCAST_AUDIO_PREPARED);
-            sendBroadcast(broadcastIntent);
-        }
-    }
-
-    class MediaPlayerBroadcastReceiver {
-        public BroadcastReceiver onNoisyBroadcastReceiver(){
-            return new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    //pause audio on ACTION_AUDIO_BECOMING_NOISY
-                    pauseMedia();
-                    buildNotification(PlaybackStatus.PAUSED);
-                }
-            };
-        }
-
-        public BroadcastReceiver onAudioPreparedReceiver(){
-            return new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    updateMetaData();
-                    buildNotification(PlaybackStatus.PLAYING);
-                }
-            };
-        }
     }
 }
